@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local CombatRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Combat")
 local DungeonRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DungeonStart")
+local StatsRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PointTo")
+local ReawakenRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Reawaken")
 local hrp = player.Character:WaitForChild("HumanoidRootPart")
 local waveLabel = player:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("Wave")
 local hasLobbyInitially = workspace:WaitForChild("Map"):FindFirstChild("Lobby")
@@ -90,7 +92,7 @@ local function killMobs()
 					if isBoss and isBossWave then
 						repeat
 							task.wait()
-							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0,15,0)) * CFrame.Angles(math.rad(-90), 0, 0)
+							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0, teleportHeight, 0)) * CFrame.Angles(math.rad(-90), 0, 0)
 							CombatRemote:FireServer()
 						until not _G.AutoFarm or humanoid.Health <= 0
 					else
@@ -144,6 +146,18 @@ local MainWindow = Rayfield:CreateWindow({
 
 local MainTab = MainWindow:CreateTab("Main", 4483362458)
 
+MainTab:CreateSlider({
+	Name = "Auto Farm Height",
+	Range = {0, 50},
+	Increment = 1,
+	Suffix = " studs",
+	CurrentValue = 15,
+	Flag = "TeleportHeight",
+	Callback = function(Height)
+		teleportHeight = Height
+	end,
+})
+
 MainTab:CreateToggle({
 	Name = "Fully Auto Farm",
 	CurrentValue = false,
@@ -170,6 +184,17 @@ MainTab:CreateToggle({
 })
 
 MainTab:CreateToggle({
+	Name = "Auto Reawaken",
+	CurrentValue = false,
+	Flag = "AutoReawaken",
+	Callback = function(Reawaken)
+		if Reawaken then
+			ReawakenRemote:FireServer()
+		end
+	end,
+})
+
+MainTab:CreateToggle({
 	Name = "Skip Roll",
 	CurrentValue = false,
 	Flag = "SkipRoll",
@@ -182,32 +207,29 @@ MainTab:CreateToggle({
 	end,
 })
 
-local selectedStat = "Strength"
-local autoStatting = false
+local SelectedStat = "Strength"
 MainTab:CreateDropdown({
 	Name = "Selecte Statts",
 	Options = {"Strength", "Agility", "Perception", "Vitality", "Intellect"},
 	CurrentOption = "Strength",
-	Flag = "SelectedStats",
-	Callback = function(Value)
-		selectedStat = Value
+	Flag = "SelecteStats",
+	Callback = function(Stat)
+		SelectedStat = Stat
 	end,
 })
 
 MainTab:CreateToggle({
 	Name = "Auto Upgrade Stats",
 	CurrentValue = false,
-	Flag = "AutoStat",
-	Callback = function(Value)
-		autoStatting = Value
-		if Value then
+	Flag = "AutoStats",
+	Callback = function(AuStat)
+		_G.AutoStats = AuStat
+		if AuStat then
 			task.spawn(function()
-				while autoStatting do
-					task.wait(0.5)
+				while _G.AutoStats do
+					task.wait()
 					pcall(function()
-						local ReplicatedStorage = game:GetService("ReplicatedStorage")
-						local remote = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("PointTo")
-						remote:InvokeServer(selectedStat)
+						StatsRemote:InvokeServer(SelectedStat)
 					end)
 				end
 			end)
