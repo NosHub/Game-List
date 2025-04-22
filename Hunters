@@ -1,0 +1,218 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+local CombatRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Combat")
+local DungeonRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DungeonStart")
+local hrp = player.Character:WaitForChild("HumanoidRootPart")
+local waveLabel = player:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("Wave")
+local hasLobbyInitially = workspace:WaitForChild("Map"):FindFirstChild("Lobby")
+
+local levelRanges = {
+	{min = 1, max = 9,    lo = "DoubleDungeonD", df = "Regular"},
+	{min = 10, max = 14,  lo = "DoubleDungeonD", df = "Hard"},
+	{min = 15, max = 19,  lo = "DoubleDungeonD", df = "Nightmare"},
+	{min = 20, max = 24,  lo = "GoblinCave",     df = "Regular"},
+	{min = 25, max = 34,  lo = "GoblinCave",     df = "Hard"},
+	{min = 35, max = 39,  lo = "GoblinCave",     df = "Nightmare"},
+	{min = 40, max = 44,  lo = "SpiderCavern",   df = "Regular"},
+	{min = 45, max = 54,  lo = "SpiderCavern",   df = "Hard"},
+	{min = 55, max = 999, lo = "SpiderCavern",   df = "Nightmare"},
+}
+
+local safeCreated = false
+if not safeCreated then
+local safePart = Instance.new("Part")
+    safePart.Name = "SafeTP"
+    safePart.Size = Vector3.new(10, 1, 10)
+    safePart.Position = hrp.Position + Vector3.new(0, 25, 0)
+    safePart.Anchored = true
+    safePart.Transparency = 0.9
+    safePart.Parent = workspace
+    safeCreated = true
+end
+
+local function getLevelSetting()
+	local levelText = player.PlayerGui.ScreenGui.ButtomAlign.Level.Text
+	local levelNumber = tonumber(levelText:match("%d+"))
+	if levelNumber then
+		for _, range in ipairs(levelRanges) do
+			if levelNumber >= range.min and levelNumber <= range.max then
+				return {lo = range.lo, df = range.df}
+			end
+		end
+	end
+	return nil
+end
+
+local function startLobby()
+	local setting = getLevelSetting()
+	if setting then
+		local remotes = ReplicatedStorage.Remotes
+		remotes.createLobby:InvokeServer(setting.lo)
+		task.wait(1)
+		remotes.LobbyDifficulty:FireServer(setting.df)
+		task.wait(1)
+		remotes.LobbyStart:FireServer()
+	end
+end
+
+local function autoLobbyLoop()
+	if hasLobbyInitially then
+		if _G.AutoFarm then startLobby() end
+	else
+		task.spawn(function()
+			local dungeonEnd = player.PlayerGui.ScreenGui:WaitForChild("DungeonEnd")
+			while _G.AutoFarm do
+				if dungeonEnd.Visible then
+					startLobby()
+					break
+				end
+				task.wait(0.25)
+			end
+		end)
+	end
+end
+
+local function killMobs()
+	while _G.AutoFarm do task.wait()
+		pcall(function()
+			local mobsFolder = workspace:FindFirstChild("Mobs")
+			if not mobsFolder then return end
+			for _, mob in pairs(mobsFolder:GetChildren()) do
+				local humanoid = mob:FindFirstChildOfClass("Humanoid")
+				if humanoid and humanoid.Health > 0 then
+					local isBoss = ({
+						["Monolith"] = true,
+						["Gorruk"] = true,
+						["Zyreth"] = true,
+					})[mob.Name]
+					local isBossWave = waveLabel.Text == "WAVE 10"
+					if isBoss and isBossWave then
+						repeat
+							task.wait()
+							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0,15,0)) * CFrame.Angles(math.rad(-90), 0, 0)
+							CombatRemote:FireServer()
+						until not _G.AutoFarm or humanoid.Health <= 0
+					else
+						humanoid.Health = 0
+						local safe = workspace:FindFirstChild("SafeTP")
+						if safe then
+							hrp.CFrame = safe.CFrame * CFrame.new(0, 5, 0)
+						end
+					end
+				end
+			end
+		end)
+	end
+end
+
+local function SkipRoll()
+    _G.SkipRoll = true
+    while _G.SkipRoll do
+        task.wait()
+        pcall(function()
+            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Roll"):InvokeServer()
+        end)
+    end
+end
+
+local function StopRoll()
+    _G.SkipRoll = false
+end
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local MainWindow = Rayfield:CreateWindow({
+	Name = "Nos Hub [ Hunters ]",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by Nos",
+    ConfigurationSaving = {
+       Enabled = true,
+       FolderName = nil,
+       FileName = "NosHunters"
+    },
+    KeySystem = false,
+    KeySettings = {
+       Title = "Nos Hub",
+       Subtitle = "Key System",
+       Note = "Key: Nos",
+       FileName = "NosKey",
+       SaveKey = true,
+       GrabKeyFromSite = false,
+       Key = "Test"
+    },
+})
+
+local MainTab = MainWindow:CreateTab("Main", 4483362458)
+
+MainTab:CreateToggle({
+	Name = "Fully Auto Farm",
+	CurrentValue = false,
+	Flag = "AutoFarm",
+	Callback = function(Farm)
+		_G.AutoFarm = Farm
+		_G.Room = Farm
+		if Farm then
+			autoLobbyLoop()
+			killMobs()
+		end
+	end
+})
+
+MainTab:CreateToggle({
+	Name = "Start Dungeon",
+	CurrentValue = false,
+	Flag = "StartDungeon",
+	Callback = function(Dungeon)
+		if Dungeon then
+			DungeonRemote:FireServer()
+		end
+	end,
+})
+
+MainTab:CreateToggle({
+	Name = "Skip Roll",
+	CurrentValue = false,
+	Flag = "SkipRoll",
+	Callback = function(Roll)
+		if Roll then
+			SkipRoll()
+		else
+			StopRoll()
+		end
+	end,
+})
+
+local selectedStat = "Strength"
+local autoStatting = false
+MainTab:CreateDropdown({
+	Name = "Selecte Statts",
+	Options = {"Strength", "Agility", "Perception", "Vitality", "Intellect"},
+	CurrentOption = "Strength",
+	Flag = "SelectedStats",
+	Callback = function(Value)
+		selectedStat = Value
+	end,
+})
+
+MainTab:CreateToggle({
+	Name = "Auto Upgrade Stats",
+	CurrentValue = false,
+	Flag = "AutoStat",
+	Callback = function(Value)
+		autoStatting = Value
+		if Value then
+			task.spawn(function()
+				while autoStatting do
+					task.wait(0.5)
+					pcall(function()
+						local ReplicatedStorage = game:GetService("ReplicatedStorage")
+						local remote = ReplicatedStorage:WaitForChild("Remote"):WaitForChild("PointTo")
+						remote:InvokeServer(selectedStat)
+					end)
+				end
+			end)
+		end
+	end,
+})
+
+Rayfield:LoadConfiguration()
