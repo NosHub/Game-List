@@ -184,16 +184,16 @@ MainTab:CreateToggle({
 	end,
 })
 
-MainTab:CreateToggle({
-	Name = "Auto Reawaken",
-	CurrentValue = false,
-	Flag = "AutoReawaken",
-	Callback = function(Reawaken)
-		if Reawaken then
-			ReawakenRemote:FireServer()
-		end
-	end,
-})
+--MainTab:CreateToggle({
+	--Name = "Auto Reawaken",
+	--CurrentValue = false,
+	--Flag = "AutoReawaken",
+	--Callback = function(Reawaken)
+		--if Reawaken then
+			--ReawakenRemote:FireServer()
+		--end
+	--end,
+--})
 
 MainTab:CreateToggle({
 	Name = "Skip Roll",
