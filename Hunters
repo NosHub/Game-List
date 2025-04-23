@@ -8,6 +8,7 @@ local ReawakenRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("R
 local hrp = player.Character:WaitForChild("HumanoidRootPart")
 local waveLabel = player:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("Wave")
 local hasLobbyInitially = workspace:WaitForChild("Map"):FindFirstChild("Lobby")
+local teleportHeight = 0
 
 local levelRanges = {
 	{min = 1, max = 9,    lo = "DoubleDungeonD", df = "Regular"},
@@ -92,7 +93,7 @@ local function killMobs()
 					if isBoss and isBossWave then
 						repeat
 							task.wait()
-							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0, teleportHeight, 0)) * CFrame.Angles(math.rad(-90), 0, 0)
+							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0,teleportHeight,0)) * CFrame.Angles(math.rad(-90), 0, 0)
 							CombatRemote:FireServer()
 						until not _G.AutoFarm or humanoid.Health <= 0
 					else
@@ -207,29 +208,28 @@ MainTab:CreateToggle({
 	end,
 })
 
-local SelectedStat = "Strength"
 MainTab:CreateDropdown({
-	Name = "Selecte Statts",
+	Name = "Selecte Stats",
 	Options = {"Strength", "Agility", "Perception", "Vitality", "Intellect"},
 	CurrentOption = "Strength",
 	Flag = "SelecteStats",
-	Callback = function(Stat)
-		SelectedStat = Stat
+	Callback = function(Value)
+		selecteStat = Value
 	end,
 })
 
 MainTab:CreateToggle({
-	Name = "Auto Upgrade Stats",
+	Name = "Auto Stats",
 	CurrentValue = false,
-	Flag = "AutoStats",
-	Callback = function(AuStat)
-		_G.AutoStats = AuStat
-		if AuStat then
+	Flag = "AutoStat",
+	Callback = function(Value)
+		autoStatting = Value
+		if Value then
 			task.spawn(function()
-				while _G.AutoStats do
+				while autoStatting do
 					task.wait()
 					pcall(function()
-						StatsRemote:InvokeServer(SelectedStat)
+						StatsRemote:InvokeServer("Strength")
 					end)
 				end
 			end)
