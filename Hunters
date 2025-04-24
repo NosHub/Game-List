@@ -1,14 +1,25 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
-local CombatRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Combat")
-local DungeonRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DungeonStart")
-local StatsRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("PointTo")
+local CombatRemote = ReplicatedStorage.Remotes.Combat
+local DungeonRemote = ReplicatedStorage.Remotes.DungeonStart
+local StatsRemote = ReplicatedStorage.Remotes.PointTo
 local ReawakenRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Reawaken")
+local ReplayRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ReplayDungeon")
+local LeaveRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LobbyLeave")
+local levelNumber = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GetInfo"):InvokeServer("Level")
 local hrp = player.Character:WaitForChild("HumanoidRootPart")
 local waveLabel = player:WaitForChild("PlayerGui"):WaitForChild("ScreenGui"):WaitForChild("Wave")
 local hasLobbyInitially = workspace:WaitForChild("Map"):FindFirstChild("Lobby")
-local teleportHeight = 0
+local dungeonEnd = player.PlayerGui.ScreenGui:WaitForChild("DungeonEnd")
+local teleportHeight = 15
+
+local VirtualUser = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:Connect(function()
+	VirtualUser:CaptureController()
+	VirtualUser:ClickButton2(Vector2.new(0,0))
+	task.wait(2)
+end)
 
 local levelRanges = {
 	{min = 1, max = 9,    lo = "DoubleDungeonD", df = "Regular"},
@@ -34,10 +45,20 @@ local safePart = Instance.new("Part")
     safeCreated = true
 end
 
+local function autoReplayLoop()
+	task.spawn(function()
+		while _G.AutoReplay do
+			if dungeonEnd.Visible then
+				ReplayRemote:FireServer()
+				break
+			end
+			task.wait(0.25)
+		end
+	end)
+end
+
 local function getLevelSetting()
-	local levelText = player.PlayerGui.ScreenGui.ButtomAlign.Level.Text
-	local levelNumber = tonumber(levelText:match("%d+"))
-	if levelNumber then
+	if typeof(levelNumber) == "number" then
 		for _, range in ipairs(levelRanges) do
 			if levelNumber >= range.min and levelNumber <= range.max then
 				return {lo = range.lo, df = range.df}
@@ -60,20 +81,25 @@ local function startLobby()
 end
 
 local function autoLobbyLoop()
-	if hasLobbyInitially then
-		if _G.AutoFarm then startLobby() end
-	else
-		task.spawn(function()
-			local dungeonEnd = player.PlayerGui.ScreenGui:WaitForChild("DungeonEnd")
-			while _G.AutoFarm do
-				if dungeonEnd.Visible then
-					startLobby()
-					break
-				end
-				task.wait(0.25)
-			end
-		end)
-	end
+    if _G.AutoReplay then
+        return
+    end
+
+    if hasLobbyInitially then
+        if _G.AutoFarm then
+            startLobby()
+        end
+    else
+        task.spawn(function()
+            while _G.AutoFarm do
+                if dungeonEnd.Visible then
+                    startLobby()
+                    break
+                end
+                task.wait(0.25)
+            end
+        end)
+    end
 end
 
 local function killMobs()
@@ -164,13 +190,12 @@ MainTab:CreateToggle({
 	CurrentValue = false,
 	Flag = "AutoFarm",
 	Callback = function(Farm)
-		_G.AutoFarm = Farm
-		_G.Room = Farm
-		if Farm then
-			autoLobbyLoop()
-			killMobs()
-		end
-	end
+        _G.AutoFarm = Farm
+        if Farm then
+            task.spawn(autoLobbyLoop)
+            task.spawn(killMobs)
+        end
+    end
 })
 
 MainTab:CreateToggle({
@@ -184,16 +209,28 @@ MainTab:CreateToggle({
 	end,
 })
 
---MainTab:CreateToggle({
-	--Name = "Auto Reawaken",
-	--CurrentValue = false,
-	--Flag = "AutoReawaken",
-	--Callback = function(Reawaken)
-		--if Reawaken then
-			--ReawakenRemote:FireServer()
-		--end
-	--end,
---})
+MainTab:CreateToggle({
+	Name = "Auto Replay",
+	CurrentValue = false,
+	Flag = "AutoReplay",
+	Callback = function(Replay)
+		_G.AutoReplay = Replay
+		if Replay then
+			autoReplayLoop()
+		end
+	end,
+})
+
+MainTab:CreateToggle({
+	Name = "Auto Reawaken",
+	CurrentValue = false,
+	Flag = "AutoReawaken",
+	Callback = function(Reawaken)
+		if Reawaken then
+			ReawakenRemote:InvokeServer()
+		end
+	end,
+})
 
 MainTab:CreateToggle({
 	Name = "Skip Roll",
@@ -208,13 +245,14 @@ MainTab:CreateToggle({
 	end,
 })
 
+local selecteStat = "Strength"
 MainTab:CreateDropdown({
 	Name = "Selecte Stats",
 	Options = {"Strength", "Agility", "Perception", "Vitality", "Intellect"},
-	CurrentOption = "Strength",
+	CurrentOption = {"Strength"},
 	Flag = "SelecteStats",
-	Callback = function(Value)
-		selecteStat = Value
+	Callback = function(Stats)
+		selecteStat = Stats
 	end,
 })
 
@@ -222,14 +260,14 @@ MainTab:CreateToggle({
 	Name = "Auto Stats",
 	CurrentValue = false,
 	Flag = "AutoStat",
-	Callback = function(Value)
-		autoStatting = Value
-		if Value then
+	Callback = function(AutoStat)
+		_G.autoStatting = AutoStat
+		if AutoStat then
 			task.spawn(function()
-				while autoStatting do
+				while _G.autoStatting do
 					task.wait()
 					pcall(function()
-						StatsRemote:InvokeServer("Strength")
+						StatsRemote:InvokeServer(selecteStat)
 					end)
 				end
 			end)
