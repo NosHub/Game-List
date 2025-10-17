@@ -1,286 +1,787 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
-local CombatRemote = ReplicatedStorage.Remotes.Combat
-local DungeonRemote = ReplicatedStorage.Remotes.DungeonStart
-local StatsRemote = ReplicatedStorage.Remotes.PointTo
-local ReawakenRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Reawaken")
-local ReplayRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ReplayDungeon")
-local LeaveRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("LobbyLeave")
-local levelNumber = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GetInfo"):InvokeServer("Level")
-local hrp = player.Character:WaitForChild("HumanoidRootPart")
-local waveLabel = game:GetService("Players").LocalPlayer.PlayerGui.ScreenGui.Wave
-local hasLobbyInitially = workspace:WaitForChild("Map"):FindFirstChild("Lobby")
-local dungeonEnd = player.PlayerGui.ScreenGui:WaitForChild("DungeonEnd")
-local teleportHeight = 15
+local NOS = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/Main"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/SaveManager"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/InterfaceManager"))()
+local Options = NOS.Options
+local Window = NOS:CreateWindow({
+    Title = "NOS HUB : Arise Shadow Hunt",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Darker",
+    MinimizeKey = Enum.KeyCode.LeftAlt
+})
 
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local localPlayer = Players.LocalPlayer
+local gamename = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+local gameid = game.PlaceId
 local VirtualUser = game:GetService("VirtualUser")
 game:GetService("Players").LocalPlayer.Idled:Connect(function()
-	VirtualUser:CaptureController()
-	VirtualUser:ClickButton2(Vector2.new(0,0))
-	task.wait(2)
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
 end)
 
-local levelRanges = {
-	{min = 1, max = 9,    lo = "DoubleDungeonD", df = "Regular"},
-	{min = 10, max = 14,  lo = "DoubleDungeonD", df = "Hard"},
-	{min = 15, max = 19,  lo = "DoubleDungeonD", df = "Nightmare"},
-	{min = 20, max = 24,  lo = "GoblinCave",     df = "Regular"},
-	{min = 25, max = 34,  lo = "GoblinCave",     df = "Hard"},
-	{min = 35, max = 39,  lo = "GoblinCave",     df = "Nightmare"},
-	{min = 40, max = 44,  lo = "SpiderCavern",   df = "Regular"},
-	{min = 45, max = 54,  lo = "SpiderCavern",   df = "Hard"},
-	{min = 55, max = 79, lo = "SpiderCavern",   df = "Nightmare"},
-	{min = 80, max = 999, lo = "EnchantedCourtyard",   df = "Nightmare"},
-	{min = 80, max = 999, lo = "EnchantedCourtyard",   df = "Nightmare"},
-	{min = 80, max = 999, lo = "EnchantedCourtyard",   df = "Nightmare"},
+task.spawn(function()
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local GiftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftCodeReceived")
+    local startTime = tick()
+    while tick() - startTime < 30 do
+        for i = 1, 100 do
+            pcall(function()
+                GiftRemote:InvokeServer(i)
+            end)
+            task.wait()
+        end
+        task.wait()
+    end
+end)
+
+local suffixes = {
+    k = 1e3,
+    M = 1e6,
+    B = 1e9,
+    T = 1e12,
+    Qa = 1e15,
+    Qi = 1e18,
+	Sx = 1e21,
+	Sp = 1e24,
+	Oc = 1e27,
+	No = 1e30,
+	Dc = 1e33,
+	Ud = 1e36,
 }
 
-local safeCreated = false
-if not safeCreated then
-local safePart = Instance.new("Part")
-    safePart.Name = "SafeTP"
-    safePart.Size = Vector3.new(10, 1, 10)
-    safePart.Position = hrp.Position + Vector3.new(0, 25, 0)
-    safePart.Anchored = true
-    safePart.Transparency = 1
-    safePart.Parent = workspace
-    safeCreated = true
-end
-local safe = workspace:FindFirstChild("SafeTP")
-
-local function autoReplayLoop()
-	task.spawn(function()
-		while _G.AutoReplay do
-			if dungeonEnd.Visible then
-				ReplayRemote:FireServer()
-				break
-			end
-			task.wait(0.25)
-		end
-	end)
-end
-
-local function getLevelSetting()
-	if typeof(levelNumber) == "number" then
-		for _, range in ipairs(levelRanges) do
-			if levelNumber >= range.min and levelNumber <= range.max then
-				return {lo = range.lo, df = range.df}
-			end
-		end
-	end
-	return nil
-end
-
-local function startLobby()
-	local setting = getLevelSetting()
-	if setting then
-		local remotes = ReplicatedStorage.Remotes
-		remotes.createLobby:InvokeServer(setting.lo)
-		task.wait(1)
-		remotes.LobbyDifficulty:FireServer(setting.df)
-		task.wait(1)
-		remotes.LobbyStart:FireServer()
-	end
-end
-
-local function autoLobbyLoop()
-    if _G.AutoReplay then
-        return
-    end
-
-    if hasLobbyInitially then
-        if _G.AutoFarm then
-            startLobby()
+local function parseHealth(text)
+    if not text then return nil end
+    text = text:gsub("%s+", "")
+    local number, suffix = text:match("([%d%.]+)(%a+)")
+    if number then
+        local mult = suffixes[suffix]
+        if mult then
+            return tonumber(number) * mult
         end
-    else
-        task.spawn(function()
-            while _G.AutoFarm do
-                if dungeonEnd.Visible then
-                    startLobby()
-                    break
-                end
-                task.wait(0.25)
+        return tonumber(number)
+    end
+    return tonumber(text)
+end
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+	Randoms = Window:AddTab({ Title = "Random", Icon = "dice-4" }),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "swords" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+    Webhook = Window:AddTab({ Title = "Webhook", Icon = "wifi" }),
+}
+
+local Toggle = Tabs.Main:AddToggle("AutoGold", {Title = "Auto Collect Gold", Default = true})
+local function collectAllGold()
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local golds = Workspace:WaitForChild("Golds"):GetDescendants()
+    for i, v in ipairs(golds) do
+        if v:IsA("BasePart") then
+            v.CFrame = hrp.CFrame
+        end
+    end
+end
+Toggle:OnChanged(function(state)
+    if state then
+        collectAllGold()
+        spawn(function()
+            while Toggle.Value do
+                collectAllGold()
+                task.wait(0.1)
             end
         end)
     end
+end)
+
+local rs = game:GetService("ReplicatedStorage")
+local remotes = rs:WaitForChild("Remotes")
+local Toggle = Tabs.Main:AddToggle("AutoAttack", {Title = "Auto Attack", Default = false })
+Toggle:OnChanged(function()
+    spawn(function()
+        while Options.AutoAttack.Value do
+            pcall(function()
+                local character = game.Players.LocalPlayer.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                local closest, shortestDist = nil, math.huge
+                for i, v in pairs(workspace.Enemys:GetChildren()) do
+                    local guid = v:GetAttribute("EnemyGuid")
+                    local enemyHRP = v:FindFirstChild("HumanoidRootPart")
+                    if guid and enemyHRP then
+                        local dist = (hrp.Position - enemyHRP.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closest = v
+                        end
+                    end
+                end
+                if closest then
+                    local guid = closest:GetAttribute("EnemyGuid")
+                    remotes.ClickEnemy:InvokeServer({enemyGuid = guid})
+                    remotes.PlayerClickAttackSkill:FireServer({attackEnemyGUID = guid})
+                end
+            end)
+			task.wait()
+        end
+    end)
+end)
+
+local Keybind = Tabs.Main:AddKeybind("KeybindAttack", {
+    Title = "Keybind Auto Attack",
+    Mode = "Toggle",
+    Default = "C",
+    Callback = function(Attack)
+        Options.AutoAttack:SetValue(Attack)
+    end,
+})
+
+local AllBuffs = {
+    {ItemId = 10047, GuiId = "20001", Title = "Luck I"},
+    {ItemId = 10050, GuiId = "20004", Title = "Luck II"},
+    {ItemId = 10053, GuiId = "20007", Title = "Luck III"},
+    {ItemId = 10048, GuiId = "20002", Title = "Damage I"},
+    {ItemId = 10051, GuiId = "20005", Title = "Damage II"},
+    {ItemId = 10054, GuiId = "20008", Title = "Damage III"},
+    {ItemId = 10049, GuiId = "20003", Title = "Gold I"},
+    {ItemId = 10052, GuiId = "20006", Title = "Gold II"},
+    {ItemId = 10055, GuiId = "20009", Title = "Gold III"},
+}
+local BuffNames = {}
+for i, buff in ipairs(AllBuffs) do
+    table.insert(BuffNames, buff.Title)
 end
 
-local function killMobs()
-    if not hasLobbyInitially then
-        hrp.CFrame = safe.CFrame * CFrame.new(0, 5, 0)
+local SelectedBuffs = {}
+local MultiDropdown = Tabs.Main:AddDropdown("SelectBuffs", {
+    Title = "Select Buffs",
+    Description = "เลือกน้ำยา",
+    Values = BuffNames,
+    Multi = true,
+    Default = {}
+})
+
+MultiDropdown:OnChanged(function(Value)
+    SelectedBuffs = {}
+    for name, state in pairs(Value) do
+        if state then
+            table.insert(SelectedBuffs, name)
+        end
     end
-	while _G.AutoFarm do task.wait()
-		pcall(function()
-			local mobsFolder = workspace:FindFirstChild("Mobs")
-			if not mobsFolder then return end
-			for _, mob in pairs(mobsFolder:GetChildren()) do
-				local humanoid = mob:FindFirstChildOfClass("Humanoid")
-				if humanoid and humanoid.Health > 0 then
-					local isBoss = ({
-						["Monolith"] = true,
-						["Gorruk"] = true,
-						["Zyreth"] = true,
-						["Barkhan"] = true,
-					})[mob.Name]
-                    local isBossWave = waveLabel.Text == "WAVE 6"
-                    if isBoss and isBossWave then
-						repeat
-							task.wait()
-							hrp.CFrame = (mob.HumanoidRootPart.CFrame * CFrame.new(0,teleportHeight,0)) * CFrame.Angles(math.rad(-90), 0, 0)
-							CombatRemote:FireServer()
-						until not _G.AutoFarm or humanoid.Health <= 0
-					else
-						humanoid.Health = 0
-						if safe then
-							hrp.CFrame = safe.CFrame * CFrame.new(0, 1, 0)
-						end
-					end
-				end
-			end
-		end)
-	end
+end)
+
+local function timeTextToSeconds(timeText)
+    local h, m, s = timeText:match("(%d+):(%d+):(%d+)")
+    if h and m and s then
+        return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
+    end
+    return nil
 end
 
-local function SkipRoll()
-    _G.SkipRoll = true
-    while _G.SkipRoll do
-        task.wait()
+local Toggle = Tabs.Main:AddToggle("AutoBuff", {Title = "Auto Use Buff", Default = false})
+Toggle:OnChanged(function()
+    while Options.AutoBuff.Value do
         pcall(function()
-            ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Roll"):InvokeServer()
+            for i, buffName in ipairs(SelectedBuffs) do
+                local buff
+                for i, b in pairs(AllBuffs) do
+                    if b.Title == buffName then buff = b end
+                end
+                if buff then
+                    local playerGui = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+                    local buffsFolder = playerGui:WaitForChild("MainPanel"):WaitForChild("Buffs"):WaitForChild("CommonBuffs")
+                    local countDownLabel = buffsFolder:FindFirstChild(buff.GuiId)
+                    local useBuff = false
+                    if countDownLabel then
+                        local countDownText = countDownLabel:FindFirstChild("CountDown") and countDownLabel.CountDown.Text
+                        local seconds = countDownText and timeTextToSeconds(countDownText)
+                        if seconds and seconds <= 5 then
+                            useBuff = true
+                        end
+                    else
+                        useBuff = true
+                    end
+                    if useBuff then
+                        local args = {{itemId = buff.ItemId, useCount = 1}}
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):InvokeServer(unpack(args))
+                        task.wait(1)
+                    end
+                end
+            end
         end)
+        task.wait()
+    end
+end)
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BlackScreenGui"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+local BlackFrame = Instance.new("Frame")
+BlackFrame.Size = UDim2.new(1, 0, 1, 0)
+BlackFrame.Position = UDim2.new(0, 0, 0, 0)
+BlackFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+BlackFrame.BorderSizePixel = 0
+BlackFrame.Visible = false
+BlackFrame.Parent = ScreenGui
+
+local Toggle = Tabs.Main:AddToggle("BlackScreen", {
+    Title = "Black Screen (ลดแล็ค)",
+    Default = false,
+})
+
+Toggle:OnChanged(function(Value)
+    BlackFrame.Visible = Value
+end)
+
+local Keybind = Tabs.Main:AddKeybind("KeybindBlack", {
+    Title = "Keybind Black Screen",
+    Mode = "Toggle",
+    Default = "G",
+    Callback = function(Black)
+        Options.BlackScreen:SetValue(Black)
+    end,
+})
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+
+-- รอ GUI โหลด
+repeat task.wait() until localPlayer:FindFirstChild("PlayerGui") 
+    and localPlayer.PlayerGui:FindFirstChild("HeroEquipPanel")
+
+local scrollingFrame = localPlayer.PlayerGui.HeroEquipPanel
+    :WaitForChild("Frame")
+    :WaitForChild("Package")
+    :WaitForChild("Right")
+    :WaitForChild("Mid")
+    :WaitForChild("ScrollingFrame")
+
+
+local GUID_PATTERN = "%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x"
+
+local gearItems = {}
+local gearNames = {}
+for _, child in ipairs(scrollingFrame:GetChildren()) do
+    if child.Name:match(GUID_PATTERN) then
+        local nameText = child:FindFirstChild("NameText")
+        if nameText and nameText:IsA("TextLabel") then
+            local tag = string.sub(child.Name, -4) -- 4 ตัวท้ายของ GUID
+            local displayName = string.format("%s [%s]", nameText.Text, tag)
+            gearItems[displayName] = child.Name
+            table.insert(gearNames, displayName)
+        end
     end
 end
 
-local function StopRoll()
-    _G.SkipRoll = false
+-- Dropdown Gear
+local GearDropdown = Tabs.Randoms:AddDropdown("SelectGear", {
+    Title = "Select Gear to Upgrade",
+    Description = "เลือกอุปกรณ์ที่ต้องการอัปเกรด",
+    Values = gearNames,
+    Multi = false,
+    Default = ""
+})
+
+local selectedGearGUID = nil
+local selectedGearName = ""
+GearDropdown:OnChanged(function(Value)
+    if typeof(Value) == "table" then
+        for name, selected in ipairs(Value) do
+            if selected and gearItems[name] then
+                selectedGearGUID = gearItems[name]
+                selectedGearName = name
+                break
+            end
+        end
+    else
+        if gearItems[Value] then
+            selectedGearGUID = gearItems[Value]
+            selectedGearName = Value
+        end
+    end
+end)
+
+Tabs.Randoms:AddButton({
+    Title = "Refresh Gears",
+    Description = "รีเฟรช Gear ใหม่และรีเซ็ตการเลือก",
+    Callback = function()
+        gearItems = {}
+        gearNames = {}
+        for _, child in ipairs(scrollingFrame:GetChildren()) do
+            if child.Name:match(GUID_PATTERN) then
+                local nameText = child:FindFirstChild("NameText")
+                if nameText and nameText:IsA("TextLabel") then
+                    local tag = string.sub(child.Name, -4) -- 4 ตัวท้ายของ GUID
+                    local displayName = string.format("%s [%s]", nameText.Text, tag)
+                    gearItems[displayName] = child.Name
+                    table.insert(gearNames, displayName)
+                end
+            end
+        end
+        GearDropdown:SetValues(gearNames)
+        GearDropdown:SetValue("")
+        selectedGearGUID = nil
+        selectedGearName = ""
+        updateLog("🔄 รีเฟรช Gear แล้ว")
+    end
+})
+
+local GradeIds = {
+	{RId = "990001",YId = "990011",BId = "990021", Title = "E"},
+    {RId = "990002",YId = "990012",BId = "990022", Title = "D"},
+    {RId = "990003",YId = "990013",BId = "990023", Title = "C"},
+    {RId = "990004",YId = "990014",BId = "990024", Title = "B"},
+    {RId = "990005",YId = "990015",BId = "990025", Title = "A"},
+    {RId = "990006",YId = "990016",BId = "990026", Title = "S"},
+    {RId = "990007",YId = "990017",BId = "990027", Title = "SS"},
+    {RId = "990008",YId = "990018",BId = "990028", Title = "G"},
+    {RId = "990009",YId = "990019",BId = "990029", Title = "N"},
+	{RId = "990010",YId = "990020",BId = "990030", Title = "M"},
+}
+
+local gradeTitleToId = {}
+for _, g in ipairs(GradeIds) do
+    gradeTitleToId[g.Title] = tonumber(g.GId)
 end
 
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local MainWindow = Rayfield:CreateWindow({
-	Name = "Nos Hub [ Hunters ]",
-    LoadingTitle = "Loading...",
-    LoadingSubtitle = "by Nos",
-    ConfigurationSaving = {
-       Enabled = true,
-       FolderName = nil,
-       FileName = "NosHunters"
-    },
-    KeySystem = false,
-    KeySettings = {
-       Title = "Nos Hub",
-       Subtitle = "Key System",
-       Note = "Key: Nos",
-       FileName = "NosKey",
-       SaveKey = true,
-       GrabKeyFromSite = false,
-       Key = "Test"
-    },
+-- Dropdown Grades
+local GradeNames = {}
+for _, g in ipairs(GradeIds) do table.insert(GradeNames, g.Title) end
+
+local SelectedGrades = {}
+local MultiDropdown = Tabs.Randoms:AddDropdown("SelectGrades", {
+	Title = "Select Target Grades",
+	Description = "เลือกเกรดที่ต้องการให้สุ่มได้ก่อนหยุด",
+	Values = GradeNames,
+	Multi = true,
+	Default = {}
 })
 
-local MainTab = MainWindow:CreateTab("Main", 4483362458)
+MultiDropdown:OnChanged(function(Value)
+    SelectedGrades = {}
+    for name, state in pairs(Value) do
+        if state then table.insert(SelectedGrades, name) end
+    end
+end)
 
-local height = MainTab:CreateSlider({
-	Name = "Auto Farm Height",
-	Range = {0, 50},
-	Increment = 1,
-	Suffix = " studs",
-	CurrentValue = 15,
-	Flag = "TeleportHeight",
-	Callback = function(Height)
-		teleportHeight = Height
-	end,
+-- Paragraph สำหรับ log
+local LogParagraph = Tabs.Randoms:AddParagraph({
+    Title = "🎲 Gear Upgrade Log",
+    Content = "⏳ Waiting for start..."
 })
 
-local FullyAutoFarm = MainTab:CreateToggle({
-	Name = "Fully Auto Farm",
-	CurrentValue = false,
-	Flag = "AutoFarm",
-	Callback = function(Farm)
-        _G.AutoFarm = Farm
-        if Farm then
-            task.spawn(autoLobbyLoop)
-            task.spawn(killMobs)
+-- ฟังก์ชัน update log
+local function updateLog(text)
+    if LogParagraph and LogParagraph.SetDesc then
+        LogParagraph:SetDesc(text)
+    else
+        LogParagraph.Content = text
+    end
+end
+
+-- Toggle AutoGear
+local ToggleAutoGear = Tabs.Randoms:AddToggle("AutoGearUpgrade", {
+    Title = "Auto Gear Upgrade",
+    Default = false
+})
+
+ToggleAutoGear:OnChanged(function(state)
+    task.spawn(function()
+        while ToggleAutoGear.Value do
+            task.wait()
+            pcall(function()
+                -- เช็คการเลือก Gear และ Grades
+                if not selectedGearGUID then
+                    updateLog("❌ ยังไม่ได้เลือก Gear")
+                    ToggleAutoGear:SetValue(false)
+                    return
+                end
+                if #SelectedGrades == 0 then
+                    updateLog("❌ ยังไม่ได้เลือก Target Grades")
+                    ToggleAutoGear:SetValue(false)
+                    return
+                end
+
+                -- detect drawId ตามตัวอักษรนำหน้าไอเท็ม
+                local firstChar = string.sub(selectedGearName,1,1)
+                local drawId
+                if firstChar == "R" then
+                    drawId = 980001
+                elseif firstChar == "Y" then
+                    drawId = 980002
+                elseif firstChar == "B" then
+                    drawId = 980003
+                end
+
+                -- เรียก Remote ด้วย format ใหม่
+                local args = {
+                    {
+                        drawId = drawId,
+                        guid = selectedGearGUID
+                    }
+                }
+
+                local success, result = pcall(function()
+                    return Remotes.RandomHeroEquipGrade:InvokeServer(unpack(args))
+                end)
+
+                if not success or not result then
+                    updateLog("❌ Remote Failed")
+                    return
+                end
+
+                -- get gradeId จากผลลัพธ์
+                local gradeIdGot = result.data and tonumber(result.data.grade)
+                local gradeTitleGot = "Unknown"
+
+                -- แปลง gradeId → ตัวอักษร โดยเช็คทั้ง R/Y/B
+                for _, g in ipairs(GradeIds) do
+                    if tonumber(g.RId) == gradeIdGot or tonumber(g.YId) == gradeIdGot or tonumber(g.BId) == gradeIdGot then
+                        gradeTitleGot = g.Title
+                        break
+                    end
+                end
+
+                -- update log เฉพาะตัวอักษร
+                local logText = string.format("สุ่ม %s → %s", selectedGearName, gradeTitleGot)
+                updateLog(logText)
+
+                -- check target grade
+                for _, target in ipairs(SelectedGrades) do
+                    if gradeTitleGot == target then
+                        updateLog(string.format("🎯 ได้เกรดเป้าหมาย! → %s\n🛑 หยุด AutoGearUpgrade", gradeTitleGot))
+                        ToggleAutoGear:SetValue(false)
+                        return
+                    end
+                end
+
+            end)
+        end
+    end)
+end)
+
+local Toggle = Tabs.Randoms:AddToggle("RerollHead", {Title = "Reroll Headdress", Default = false})
+Toggle:OnChanged(function()
+    spawn(function()
+        while Options.RerollHead.Value do wait()
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollOrnament"):InvokeServer(unpack({400001}))
+            end)
+		end
+	end)
+end)
+
+local Toggle = Tabs.Randoms:AddToggle("RerollOrnament", {Title = "Reroll Ornament", Default = false})
+Toggle:OnChanged(function()
+    spawn(function()
+        while Options.RerollOrnament.Value do wait()
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollOrnament"):InvokeServer(unpack({400002}))
+            end)
+		end
+	end)
+end)
+
+local EnemysFolder = workspace:WaitForChild("Enemys")
+local function GetUniqueEnemyNames()
+    local Names = {}
+    local UniqueNames = {}
+    for i, v in pairs(EnemysFolder:GetChildren()) do
+        local name = v.Name
+        if not UniqueNames[name] then
+            UniqueNames[name] = true
+            table.insert(Names, name)
+        end
+    end
+    return Names
+end
+
+local MultiDropdown = Tabs.Farm:AddDropdown("SelectMonsters", {
+    Title = "Select Monsters",
+    Description = "เลือกมอน",
+    Values = GetUniqueEnemyNames(),
+    Multi = true,
+    Default = {},
+})
+
+local SelectedMonsters = {}
+MultiDropdown:OnChanged(function(Value)
+    SelectedMonsters = {}
+    for Name, State in pairs(Value) do
+        if State then
+            table.insert(SelectedMonsters, Name)
+        end
+    end
+end)
+
+Tabs.Farm:AddButton({
+    Title = "Reset Monsters",
+    Description = "รีเซ็ตมอนที่เลือก",
+    Callback = function()
+        SelectedMonsters = {}
+        local NewNames = GetUniqueEnemyNames()
+        MultiDropdown:SetValues(NewNames)
+        MultiDropdown:SetValue({})
+    end
+})
+
+local Toggle = Tabs.Farm:AddToggle("AutoFarmTarget", {Title = "Auto Farm Selected Monster", Default = false})
+Toggle:OnChanged(function()
+    spawn(function()
+        while Options.AutoFarmTarget.Value do task.wait()
+            pcall(function()
+			    if not SelectedMonsters or #SelectedMonsters == 0 then
+                    task.wait()
+                else
+                local player = game.Players.LocalPlayer
+                local character = player.Character
+                local playerHRP = character and character:FindFirstChild("HumanoidRootPart")
+                if not playerHRP then return end
+                local closestEnemy = nil
+                local shortestDist = math.huge
+                for i, v in pairs(game:GetService("Workspace").Enemys:GetDescendants()) do
+                    if table.find(SelectedMonsters, v.Name) then
+                        local enemyHRP = v:FindFirstChild("HumanoidRootPart")
+                        local healthLabel = v:FindFirstChild("HealthNum", true)
+                        local health = parseHealth(healthLabel and healthLabel.Text)
+                        if enemyHRP and health and health > 0 then
+                            local dist = (playerHRP.Position - enemyHRP.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                closestEnemy = v
+                            end
+                        end
+                    end
+                end
+                if closestEnemy then
+                    local enemyHRP = closestEnemy:FindFirstChild("HumanoidRootPart")
+                    local healthLabel = closestEnemy:FindFirstChild("HealthNum", true)
+                    local health = parseHealth(healthLabel and healthLabel.Text)
+                    repeat
+                        playerHRP.CFrame = CFrame.new(enemyHRP.Position + Vector3.new(5,1,0), enemyHRP.Position)
+                        health = parseHealth(healthLabel and healthLabel.Text)
+                        task.wait()
+                    until not Options.AutoFarmTarget.Value or not health or health <= 0
+					end
+                end
+            end)
+        end
+    end)
+end)
+
+local Toggle = Tabs.Farm:AddToggle("AutoFarm", {Title = "Auto Farm Nearest", Default = false})
+Toggle:OnChanged(function()
+    spawn(function()
+        while Options.AutoFarm.Value do task.wait()
+            pcall(function()
+                local playerHRP = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if not playerHRP then return end
+                local closestEnemy = nil
+                local shortestDist = math.huge
+                for i, v in pairs(game:GetService("Workspace").Enemys:GetDescendants()) do
+                    local healthLabel = v:FindFirstChild("HealthNum", true)
+                    local health = parseHealth(healthLabel and healthLabel.Text)
+                    local enemyHRP = v:FindFirstChild("HumanoidRootPart")
+                    if health and health > 0 and enemyHRP then
+                        local dist = (playerHRP.Position - enemyHRP.Position).Magnitude
+                        if dist < shortestDist then
+                            shortestDist = dist
+                            closestEnemy = v
+                        end
+                    end
+                end
+                if closestEnemy then
+                    local enemyHRP = closestEnemy:FindFirstChild("HumanoidRootPart")
+                    local healthLabel = closestEnemy:FindFirstChild("HealthNum", true)
+                    local health = parseHealth(healthLabel and healthLabel.Text)
+                    repeat
+                        playerHRP.CFrame = CFrame.new(enemyHRP.Position + Vector3.new(5,1,0), enemyHRP.Position)
+                        health = parseHealth(healthLabel and healthLabel.Text)
+                        task.wait()
+                    until not Options.AutoFarm.Value or not health or health <= 0
+                end
+            end)
+        end
+    end)
+end)
+
+local Keybind = Tabs.Farm:AddKeybind("KeybindNearest", {
+    Title = "Keybind Auto Farm Nearest",
+    Mode = "Toggle",
+    Default = "V",
+    Callback = function(Nearest)
+        Options.AutoFarm:SetValue(Nearest)
+    end,
+})
+
+local Input = Tabs.Player:AddInput("WalkSpeedInput", {
+    Title = "WalkSpeed",
+    Default = "100",
+    Placeholder = "ใส่ค่า WalkSpeed",
+    Numeric = true,
+    Finished = true,
+    Callback = function(Value)
+        local speed = tonumber(Value)
+        if speed and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.WalkSpeed = speed
+        end
+    end
+})
+Input:OnChanged(function()
+    local speed = tonumber(Input.Value)
+    if speed and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+        localPlayer.Character.Humanoid.WalkSpeed = speed
+    end
+end)
+
+local Input = Tabs.Player:AddInput("JumpPowerInput", {
+    Title = "Jump Power",
+    Default = "50",
+    Placeholder = "ใส่ค่า JumpPower",
+    Numeric = true,
+    Finished = true,
+    Callback = function(Value)
+        local jump = tonumber(Value)
+        if jump and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.JumpPower = jump
+        end
+    end
+})
+Input:OnChanged(function()
+    local jump = tonumber(Input.Value)
+    if jump and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+        localPlayer.Character.Humanoid.JumpPower = jump
+    end
+end)
+
+SaveManager:SetLibrary(NOS)
+InterfaceManager:SetLibrary(NOS)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("NOSHub")
+SaveManager:SetFolder("NOSHub/" ..gamename)
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+local WebhookUrl = "https://discord.com/api/webhooks/1067435483476537344/N8oJSk8uCg-Ozk1WjKCTVW6b9cPijW8hPLpWSuTzUHbh2GpzXeie9N0yh0ikCUBhGpIV"
+Tabs.Webhook:AddInput("Webhook", {
+    Title = "Webhook",
+    Default = "",
+    Placeholder = "ใส่ Link Webhook",
+    Numeric = false,
+    Finished = true,
+    Callback = function(Value)
+        WebhookUrl = Value
+    end
+})
+local HttpService = game:GetService("HttpService")
+local player = game.Players.LocalPlayer
+local raidsList = {}
+local Connection
+local function getStatsString()
+    local statsFolder = player:FindFirstChild("leaderstats")
+    if not statsFolder then return end
+    local result = {}
+    for i, v in ipairs(statsFolder:GetChildren()) do
+        table.insert(result, v.Name .. " : " .. tostring(v.Value))
+    end
+    return table.concat(result, " | ")
+end
+
+local function sendWebhook()
+    if #raidsList == 0 or WebhookUrl == "" then return end
+    local user = player.Name
+    local data = {
+        username = "NOS HUB",
+        avatar_url = "https://cdn.discordapp.com/attachments/1067029649529520179/1422332558028570774/IMG_4537.png",
+        embeds = {{
+            color = 365055,
+            fields = {
+                {name = "**Game Name :**", value = gamename, inline = true},
+                {name = "**Game ID :**", value = tostring(gameid), inline = true},
+                {name = "**Profile :**", value = "Username : " .. user},
+                {name = "**Stats :**", value = getStatsString()},
+                {name = "**Raids :**", value = table.concat(raidsList, "\n")},
+            },
+            author = {
+                name = "NOS HUB",
+                icon_url = "https://cdn.discordapp.com/attachments/1067029649529520179/1422332558028570774/IMG_4537.png"
+            },
+            footer = {
+                text = "Time : " .. os.date("%d/%m/%Y %H:%M:%S"),
+                icon_url = "https://cdn.discordapp.com/attachments/1067029649529520179/1422332558028570774/IMG_4537.png"
+            },
+            timestamp = "",
+            thumbnail = {
+                url = "https://cdn.discordapp.com/attachments/1067029649529520179/1422332558028570774/IMG_4537.png"
+            }
+        }}
+    }
+
+    local newdata = HttpService:JSONEncode(data)
+    local headers = {["content-type"] = "application/json"}
+    local request = http_request or request or HttpPost
+    request({Url = WebhookUrl, Body = newdata, Method = "POST", Headers = headers})
+    raidsList = {}
+end
+local function extractRaidName(text)
+    local found = string.match(text, "appeared in.-rgb%(%d+,%s*%d+,%s*%d+%)\">(.-)</font>")
+    return found
+end
+local function watchTipsPanel(tipsPanel)
+    local frame = tipsPanel:WaitForChild("FloatIngTextFrame", 5)
+    if not frame then return end
+    Connection = frame.ChildAdded:Connect(function(child)
+        if child.Name == "FloatingTextTemplate" then
+            local content = child:WaitForChild("Bg"):WaitForChild("ContentText")
+            local raidName = extractRaidName(content.Text)
+            if raidName then
+                table.insert(raidsList, raidName)
+                if #raidsList >= 4 then
+                    sendWebhook()
+                end
+            end
+        end
+    end)
+end
+
+Tabs.Webhook:AddToggle("EnableWebhook", {
+    Title = "Enable Webhook",
+    Default = true,
+    Callback = function(State)
+        if State then
+            if player.PlayerGui:FindFirstChild("TipsPanel") then
+                watchTipsPanel(player.PlayerGui.TipsPanel)
+            end
+            player.PlayerGui.ChildAdded:Connect(function(child)
+                if child.Name == "TipsPanel" then
+                    watchTipsPanel(child)
+                end
+            end)
+        else
+            if Connection then
+                Connection:Disconnect()
+                Connection = nil
+            end
+            raidsList = {}
         end
     end
 })
 
-local StartDungeon = MainTab:CreateToggle({
-	Name = "Start Dungeon",
-	CurrentValue = false,
-	Flag = "StartDungeon",
-	Callback = function(Dungeon)
-		if Dungeon then
-			DungeonRemote:FireServer()
-		end
-	end,
+Window:SelectTab(1)
+
+NOS:Notify({
+    Title = "NOS HUB",
+    Content = "The script has been loaded.",
+    Duration = 8
 })
 
-local AutoReplay = MainTab:CreateToggle({
-	Name = "Auto Replay",
-	CurrentValue = false,
-	Flag = "AutoReplay",
-	Callback = function(Replay)
-		_G.AutoReplay = Replay
-		if Replay then
-			autoReplayLoop()
-		end
-	end,
-})
-
-local AutoReawaken = MainTab:CreateToggle({
-	Name = "Auto Reawaken",
-	CurrentValue = false,
-	Flag = "AutoReawaken",
-	Callback = function(Reawaken)
-		if Reawaken then
-			ReawakenRemote:InvokeServer()
-		end
-	end,
-})
-
-local SkipRoll = MainTab:CreateToggle({
-	Name = "Skip Roll",
-	CurrentValue = false,
-	Flag = "SkipRoll",
-	Callback = function(Roll)
-		if Roll then
-			SkipRoll()
-		else
-			StopRoll()
-		end
-	end,
-})
-
-local Stat = MainTab:CreateDropdown({
-	Name = "Selecte Stats",
-	Options = {"Strength", "Agility", "Perception", "Vitality", "Intellect"},
-	CurrentOption = "Strength",
-	MultipleOptions = true,
-	Flag = "SelecteStats",
-	Callback = function(Stats)
-	    selecteStat = Stats
-	end,
-})
-Stat:Set({"Strength"})
-
-local AutoStat = MainTab:CreateToggle({
-	Name = "Auto Stats",
-	CurrentValue = false,
-	Flag = "AutoStat",
-	Callback = function(AutoStat)
-		_G.autoStatting = AutoStat
-		if AutoStat then
-			task.spawn(function()
-				while _G.autoStatting do
-					task.wait()
-					pcall(function()
-						StatsRemote:InvokeServer(selecteStat)
-					end)
-				end
-			end)
-		end
-	end,
-})
-
-Rayfield:LoadConfiguration()
+SaveManager:LoadAutoloadConfig()
