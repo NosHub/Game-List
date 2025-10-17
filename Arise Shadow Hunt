@@ -49,7 +49,6 @@ local suffixes = {
 	Oc = 1e27,
 	No = 1e30,
 	Dc = 1e33,
-	Ud = 1e36,
 }
 
 local function parseHealth(text)
@@ -68,7 +67,6 @@ end
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
-	Randoms = Window:AddTab({ Title = "Random", Icon = "dice-4" }),
     Farm = Window:AddTab({ Title = "Farm", Icon = "swords" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
@@ -216,37 +214,7 @@ Toggle:OnChanged(function()
         task.wait()
     end
 end)
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "BlackScreenGui"
-ScreenGui.Parent = game.CoreGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true
-local BlackFrame = Instance.new("Frame")
-BlackFrame.Size = UDim2.new(1, 0, 1, 0)
-BlackFrame.Position = UDim2.new(0, 0, 0, 0)
-BlackFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-BlackFrame.BorderSizePixel = 0
-BlackFrame.Visible = false
-BlackFrame.Parent = ScreenGui
-
-local Toggle = Tabs.Main:AddToggle("BlackScreen", {
-    Title = "Black Screen (ลดแล็ค)",
-    Default = false,
-})
-
-Toggle:OnChanged(function(Value)
-    BlackFrame.Visible = Value
-end)
-
-local Keybind = Tabs.Main:AddKeybind("KeybindBlack", {
-    Title = "Keybind Black Screen",
-    Mode = "Toggle",
-    Default = "G",
-    Callback = function(Black)
-        Options.BlackScreen:SetValue(Black)
-    end,
-})
+Options.AutoBuff:SetValue(false)
 
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -254,240 +222,70 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
 -- รอ GUI โหลด
-repeat task.wait() until localPlayer:FindFirstChild("PlayerGui") 
-    and localPlayer.PlayerGui:FindFirstChild("HeroEquipPanel")
+repeat wait() until localPlayer and localPlayer:FindFirstChild("PlayerGui")
+                and localPlayer.PlayerGui:FindFirstChild("HeroEquipPanel")
 
-local scrollingFrame = localPlayer.PlayerGui.HeroEquipPanel
-    :WaitForChild("Frame")
-    :WaitForChild("Package")
-    :WaitForChild("Right")
-    :WaitForChild("Mid")
-    :WaitForChild("ScrollingFrame")
+local scrollingFrame = localPlayer.PlayerGui:WaitForChild("HeroEquipPanel")
+                        :WaitForChild("Frame")
+                        :WaitForChild("Package")
+                        :WaitForChild("Right")
+                        :WaitForChild("Mid")
+                        :WaitForChild("ScrollingFrame")
 
-
+-- pattern GUID 8-4-4-4-12
 local GUID_PATTERN = "%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x"
 
-local gearItems = {}
-local gearNames = {}
+-- เก็บตัวเลือก Dropdown
+local gearItems = {} -- { [NameText] = GUID }
 for _, child in ipairs(scrollingFrame:GetChildren()) do
     if child.Name:match(GUID_PATTERN) then
-        local nameText = child:FindFirstChild("NameText")
-        if nameText and nameText:IsA("TextLabel") then
-            local tag = string.sub(child.Name, -4) -- 4 ตัวท้ายของ GUID
-            local displayName = string.format("%s [%s]", nameText.Text, tag)
-            gearItems[displayName] = child.Name
-            table.insert(gearNames, displayName)
+        local nameTextObj = child:FindFirstChild("NameText")
+        if nameTextObj and nameTextObj:IsA("TextLabel") then
+            gearItems[nameTextObj.Text] = child.Name -- map ชื่อ -> GUID
         end
     end
 end
 
--- Dropdown Gear
-local GearDropdown = Tabs.Randoms:AddDropdown("SelectGear", {
+local MultiDropdown = Tabs.Main:AddDropdown("SelectGear", {
     Title = "Select Gear to Upgrade",
     Description = "เลือกอุปกรณ์ที่ต้องการอัปเกรด",
-    Values = gearNames,
+    Values = gearItems,
     Multi = false,
-    Default = ""
+    Default = {}
 })
-
 local selectedGearGUID = nil
-local selectedGearName = ""
-GearDropdown:OnChanged(function(Value)
-    if typeof(Value) == "table" then
-        for name, selected in ipairs(Value) do
-            if selected and gearItems[name] then
-                selectedGearGUID = gearItems[name]
-                selectedGearName = name
-                break
-            end
-        end
-    else
-        if gearItems[Value] then
-            selectedGearGUID = gearItems[Value]
-            selectedGearName = Value
-        end
-    end
-end)
-
-Tabs.Randoms:AddButton({
-    Title = "Refresh Gears",
-    Description = "รีเฟรช Gear ใหม่และรีเซ็ตการเลือก",
-    Callback = function()
-        gearItems = {}
-        gearNames = {}
-        for _, child in ipairs(scrollingFrame:GetChildren()) do
-            if child.Name:match(GUID_PATTERN) then
-                local nameText = child:FindFirstChild("NameText")
-                if nameText and nameText:IsA("TextLabel") then
-                    local tag = string.sub(child.Name, -4) -- 4 ตัวท้ายของ GUID
-                    local displayName = string.format("%s [%s]", nameText.Text, tag)
-                    gearItems[displayName] = child.Name
-                    table.insert(gearNames, displayName)
-                end
-            end
-        end
-        GearDropdown:SetValues(gearNames)
-        GearDropdown:SetValue("")
-        selectedGearGUID = nil
-        selectedGearName = ""
-        updateLog("🔄 รีเฟรช Gear แล้ว")
-    end
-})
-
-local GradeIds = {
-	{RId = "990001",YId = "990011",BId = "990021", Title = "E"},
-    {RId = "990002",YId = "990012",BId = "990022", Title = "D"},
-    {RId = "990003",YId = "990013",BId = "990023", Title = "C"},
-    {RId = "990004",YId = "990014",BId = "990024", Title = "B"},
-    {RId = "990005",YId = "990015",BId = "990025", Title = "A"},
-    {RId = "990006",YId = "990016",BId = "990026", Title = "S"},
-    {RId = "990007",YId = "990017",BId = "990027", Title = "SS"},
-    {RId = "990008",YId = "990018",BId = "990028", Title = "G"},
-    {RId = "990009",YId = "990019",BId = "990029", Title = "N"},
-	{RId = "990010",YId = "990020",BId = "990030", Title = "M"},
-}
-
-local gradeTitleToId = {}
-for _, g in ipairs(GradeIds) do
-    gradeTitleToId[g.Title] = tonumber(g.GId)
-end
-
--- Dropdown Grades
-local GradeNames = {}
-for _, g in ipairs(GradeIds) do table.insert(GradeNames, g.Title) end
-
-local SelectedGrades = {}
-local MultiDropdown = Tabs.Randoms:AddDropdown("SelectGrades", {
-	Title = "Select Target Grades",
-	Description = "เลือกเกรดที่ต้องการให้สุ่มได้ก่อนหยุด",
-	Values = GradeNames,
-	Multi = true,
-	Default = {}
-})
-
 MultiDropdown:OnChanged(function(Value)
-    SelectedGrades = {}
     for name, state in pairs(Value) do
-        if state then table.insert(SelectedGrades, name) end
+        if state and gearItems[name] then
+            selectedGearGUID = gearItems[name]
+            print("[Selected Gear] Name:", name, "GUID:", selectedGearGUID)
+        end
     end
 end)
 
--- Paragraph สำหรับ log
-local LogParagraph = Tabs.Randoms:AddParagraph({
-    Title = "🎲 Gear Upgrade Log",
-    Content = "⏳ Waiting for start..."
-})
-
--- ฟังก์ชัน update log
-local function updateLog(text)
-    if LogParagraph and LogParagraph.SetDesc then
-        LogParagraph:SetDesc(text)
-    else
-        LogParagraph.Content = text
-    end
-end
-
--- Toggle AutoGear
-local ToggleAutoGear = Tabs.Randoms:AddToggle("AutoGearUpgrade", {
+-- Toggle Auto Gear Upgrade
+local Toggle = Tabs.Main:AddToggle("AutoGearUpgrade", {
     Title = "Auto Gear Upgrade",
     Default = false
 })
 
 ToggleAutoGear:OnChanged(function(state)
-    task.spawn(function()
-        while ToggleAutoGear.Value do
-            task.wait()
-            pcall(function()
-                -- เช็คการเลือก Gear และ Grades
-                if not selectedGearGUID then
-                    updateLog("❌ ยังไม่ได้เลือก Gear")
-                    ToggleAutoGear:SetValue(false)
-                    return
-                end
-                if #SelectedGrades == 0 then
-                    updateLog("❌ ยังไม่ได้เลือก Target Grades")
-                    ToggleAutoGear:SetValue(false)
-                    return
-                end
-
-                -- detect drawId ตามตัวอักษรนำหน้าไอเท็ม
-                local firstChar = string.sub(selectedGearName,1,1)
-                local drawId
-                if firstChar == "R" then
-                    drawId = 980001
-                elseif firstChar == "Y" then
-                    drawId = 980002
-                elseif firstChar == "B" then
-                    drawId = 980003
-                end
-
-                -- เรียก Remote ด้วย format ใหม่
+    spawn(function()
+        while ToggleAutoGear.Value do wait()
+            if selectedGearGUID then
+                -- ตัวอย่าง args ให้ตรงกับ Remote
                 local args = {
                     {
-                        drawId = drawId,
+                        drawId = {980001,980002,980002},
                         guid = selectedGearGUID
                     }
                 }
-
-                local success, result = pcall(function()
-                    return Remotes.RandomHeroEquipGrade:InvokeServer(unpack(args))
+                pcall(function()
+                    Remotes:WaitForChild("RandomHeroEquipGrade"):InvokeServer(unpack(args))
                 end)
-
-                if not success or not result then
-                    updateLog("❌ Remote Failed")
-                    return
-                end
-
-                -- get gradeId จากผลลัพธ์
-                local gradeIdGot = result.data and tonumber(result.data.grade)
-                local gradeTitleGot = "Unknown"
-
-                -- แปลง gradeId → ตัวอักษร โดยเช็คทั้ง R/Y/B
-                for _, g in ipairs(GradeIds) do
-                    if tonumber(g.RId) == gradeIdGot or tonumber(g.YId) == gradeIdGot or tonumber(g.BId) == gradeIdGot then
-                        gradeTitleGot = g.Title
-                        break
-                    end
-                end
-
-                -- update log เฉพาะตัวอักษร
-                local logText = string.format("สุ่ม %s → %s", selectedGearName, gradeTitleGot)
-                updateLog(logText)
-
-                -- check target grade
-                for _, target in ipairs(SelectedGrades) do
-                    if gradeTitleGot == target then
-                        updateLog(string.format("🎯 ได้เกรดเป้าหมาย! → %s\n🛑 หยุด AutoGearUpgrade", gradeTitleGot))
-                        ToggleAutoGear:SetValue(false)
-                        return
-                    end
-                end
-
-            end)
+            end
         end
     end)
-end)
-
-local Toggle = Tabs.Randoms:AddToggle("RerollHead", {Title = "Reroll Headdress", Default = false})
-Toggle:OnChanged(function()
-    spawn(function()
-        while Options.RerollHead.Value do wait()
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollOrnament"):InvokeServer(unpack({400001}))
-            end)
-		end
-	end)
-end)
-
-local Toggle = Tabs.Randoms:AddToggle("RerollOrnament", {Title = "Reroll Ornament", Default = false})
-Toggle:OnChanged(function()
-    spawn(function()
-        while Options.RerollOrnament.Value do wait()
-            pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollOrnament"):InvokeServer(unpack({400002}))
-            end)
-		end
-	end)
 end)
 
 local EnemysFolder = workspace:WaitForChild("Enemys")
@@ -536,11 +334,8 @@ Tabs.Farm:AddButton({
 local Toggle = Tabs.Farm:AddToggle("AutoFarmTarget", {Title = "Auto Farm Selected Monster", Default = false})
 Toggle:OnChanged(function()
     spawn(function()
-        while Options.AutoFarmTarget.Value do task.wait()
+        while Options.AutoFarmTarget.Value do
             pcall(function()
-			    if not SelectedMonsters or #SelectedMonsters == 0 then
-                    task.wait()
-                else
                 local player = game.Players.LocalPlayer
                 local character = player.Character
                 local playerHRP = character and character:FindFirstChild("HumanoidRootPart")
@@ -570,7 +365,6 @@ Toggle:OnChanged(function()
                         health = parseHealth(healthLabel and healthLabel.Text)
                         task.wait()
                     until not Options.AutoFarmTarget.Value or not health or health <= 0
-					end
                 end
             end)
         end
@@ -580,7 +374,7 @@ end)
 local Toggle = Tabs.Farm:AddToggle("AutoFarm", {Title = "Auto Farm Nearest", Default = false})
 Toggle:OnChanged(function()
     spawn(function()
-        while Options.AutoFarm.Value do task.wait()
+        while Options.AutoFarm.Value do
             pcall(function()
                 local playerHRP = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if not playerHRP then return end
