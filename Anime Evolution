@@ -1,0 +1,375 @@
+getgenv().NOS_SCRIPT_ID = (getgenv().NOS_SCRIPT_ID or 0) + 1
+local SCRIPT_ID = getgenv().NOS_SCRIPT_ID
+if getgenv().NOS_UI then
+    pcall(function()
+        getgenv().NOS_UI:Destroy()
+    end)
+end
+task.wait(0.3)
+
+local NOS = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/Main"))() getgenv().NOS_UI = NOS
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/SaveManager"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/InterfaceManager"))()
+local Options = NOS.Options
+
+local Window = NOS:CreateWindow({
+    Title = "NOS HUB : Anime Evolution",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Darker",
+    MinimizeKey = Enum.KeyCode.LeftAlt
+})
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+local localPlayer = Players.LocalPlayer
+local gamename = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+local gameid = game.PlaceId
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local Bridge = ReplicatedStorage:WaitForChild("Bridge")
+local TeleportService = game:GetService("TeleportService")
+local gui
+pcall(function()
+    gui = Players.LocalPlayer.PlayerGui.UI.Frames.UpdateLog.Main.Frame
+end)
+
+Players.LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(State)
+    if State == Enum.TeleportState.Failed then
+        task.wait(3)
+        TeleportService:Teleport(game.PlaceId)
+    end
+end)
+
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        task.wait(3)
+        TeleportService:Teleport(game.PlaceId)
+    end
+end)
+
+Players.LocalPlayer.CameraMaxZoomDistance = 1000
+
+task.spawn(function()
+	while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(150)
+	    Bridge:FireServer("EngagementRewards","ClaimAll","Time")
+		task.wait(1.5)
+		Bridge:FireServer("EngagementRewards","ClaimAll","Daily")
+		task.wait(1.5)
+		Bridge:FireServer("EngagementRewards","ClaimAll","Daily30")
+	end
+end)
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Egg = Window:AddTab({ Title = "Egg", Icon = "egg" }),
+    Raid = Window:AddTab({ Title = "Raid", Icon = "swords" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "user-cog" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
+}
+
+-- ==============================
+-- ดึง Map จาก Teleport
+-- ==============================
+
+local Teleports = workspace:WaitForChild("Server"):WaitForChild("Teleport")
+local EggMaps = {}
+local RaidMaps = {}
+
+for i,v in ipairs(Teleports:GetChildren()) do
+    local name = v.Name
+    if string.match(name,"^Raid") then
+        table.insert(RaidMaps,name)
+    elseif not string.find(name,"Raid") then
+        table.insert(EggMaps,name)
+    end
+end
+
+-- ==============================
+-- Main
+-- ==============================
+
+local AutoRank = Tabs.Main:AddToggle("AutoRank",{Title="Auto Rank",Default=false})
+AutoRank:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoRank.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(10)
+            pcall(function()
+                Bridge:FireServer("RankUp","Evolve")
+            end)
+        end
+    end)
+end)
+
+local AutoAuras = Tabs.Main:AddToggle("AutoAuras",{Title="Auto Auras",Default=false})
+AutoAuras:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoAuras.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(10)
+            pcall(function()
+                Bridge:FireServer("Auras","Evolve")
+            end)
+        end
+    end)
+end)
+
+Tabs.Main:AddButton({
+	Title = "Open Valentine Shop",
+	Description = "Press again to turn off",
+	Callback = function()
+		local frame = Players.LocalPlayer.PlayerGui.UI.Frames.ValentineEventShop
+		frame.Visible = not frame.Visible
+		frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	end
+})
+
+Tabs.Main:AddButton({
+	Title = "Open Enchant Weapon",
+	Description = "Press again to turn off",
+	Callback = function()
+		local frame = Players.LocalPlayer.PlayerGui.UI.Frames.EnchantWeapon
+		frame.Visible = not frame.Visible
+		frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	end
+})
+
+Tabs.Main:AddButton({
+	Title = "Claim Chest",
+	Description = "Press to claim all chest",
+	Callback = function()
+		Bridge:FireServer("DailyChestsServer","OpenChest","CommonChest")
+		task.wait(1.5)
+		Bridge:FireServer("DailyChestsServer","OpenChest","GroupChest")
+		task.wait(1.5)
+		Bridge:FireServer("DailyChestsServer","OpenChest","VIPChest")
+		task.wait(1.5)
+		Bridge:FireServer("DailyChestsServer","OpenChest","PremiumChest")
+	end
+})
+
+Tabs.Main:AddButton({
+    Title = "Redeem All Codes",
+    Description = "Press to redeem all codes",
+    Callback = function()
+        local codesList = {}
+        for _,v in pairs(gui:GetDescendants()) do
+            if v.Name == "new_code" and v:IsA("TextLabel") then
+                local code = v.Text:gsub("%-",""):gsub("%s","")
+                if code ~= "" then
+                    table.insert(codesList, code)
+                end
+            end
+        end
+        for _,code in ipairs(codesList) do
+            task.spawn(function()
+                local start = tick()
+                while tick() - start < 10 do task.wait()
+                    pcall(function()
+                        Bridge:FireServer("Codes","Redeem",code)
+                    end)
+                end
+            end)
+        end
+    end
+})
+
+-- ==============================
+-- Egg
+-- ==============================
+
+Tabs.Egg:AddDropdown("EggMap",{
+    Title="Select Egg Map",
+    Values=EggMaps,
+    Multi=false,
+    Default=EggMaps[1]
+})
+
+Tabs.Egg:AddDropdown("EggType",{
+    Title = "Roll Type",
+    Values = {"Multi","Single"},
+    Multi = false,
+    Default = "Multi"
+})
+
+local AutoEgg = Tabs.Egg:AddToggle("AutoEgg",{Title="Auto Egg",Default=false})
+AutoEgg:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoEgg.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+            pcall(function()
+                local egg = {
+                    "Stars",
+                    "Roll",
+                    {
+                        Map = Options.EggMap.Value,
+                        Type = Options.EggType.Value
+                    }
+                }
+                Bridge:FireServer(unpack(egg))
+                Players.LocalPlayer.PlayerGui.UI.Enabled = true
+				game:GetService("Lighting").StarBlur.Enabled = false
+            end)
+        end
+    end)
+end)
+
+Tabs.Egg:AddButton({
+	Title = "Open Auto Delete",
+	Description = "Press again to turn off",
+	Callback = function()
+		local frame = Players.LocalPlayer.PlayerGui.UI.Frames.AutoDelete
+		frame.Visible = not frame.Visible
+		frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+	end
+})
+
+local AutoBest = Tabs.Egg:AddToggle("AutoBest",{
+    Title = "Auto Equip Best",
+    Default = false
+})
+AutoBest:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoBest.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(3)
+            pcall(function()
+                Bridge:FireServer("Pets","Best")
+            end)
+        end
+    end)
+end)
+
+-- ==============================
+-- Raid
+-- ==============================
+
+Tabs.Raid:AddDropdown("RaidSelect",{
+    Title="Select Raid",
+    Values=RaidMaps,
+    Multi=false,
+    Default=RaidMaps[1]
+})
+
+local AutoRaid = Tabs.Raid:AddToggle("AutoRaid",{Title="Auto Raid",Default=false})
+AutoRaid:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoRaid.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(1)
+            pcall(function()
+                local raid = Options.RaidSelect.Value
+                if raid then
+                    local raid = {
+                        "Enemies",
+                        "Bridge",
+                        {
+                            Module = "RaidSystemServer",
+                            FunctionName = "Start",
+                            Args = raid
+                        }
+                    }
+                    Bridge:FireServer(unpack(raid))
+                end
+            end)
+        end
+    end)
+end)
+
+local ExitWave = 51
+Tabs.Raid:AddInput("ExitWaveInput",{
+    Title = "Exit At Wave",
+    Default = "51",
+    Numeric = true,
+    Finished = false,
+    Callback = function(Value)
+        ExitWave = tonumber(Value) or 51
+    end
+})
+
+local AutoExit = Tabs.Raid:AddToggle("AutoExitRaid",{
+    Title = "Auto Exit Raid",
+    Default = false
+})
+AutoExit:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoExitRaid.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+            pcall(function()
+                local text = game:GetService("Players").LocalPlayer.PlayerGui.UI.HUD.RaidInfoBoard.waveValue.Text
+                local wave = tonumber(text:match("(%d+)/"))
+                if wave and wave >= ExitWave then
+                    for i,raidName in pairs(RaidMaps) do
+                        local exit = {
+                            "Enemies",
+                            "Bridge",
+                            {
+                                Module = "RaidSystemServer",
+                                FunctionName = "Leave",
+                                Args = raidName
+                            }
+                        }
+                        Bridge:FireServer(unpack(exit))
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+-- ==============================
+-- Player
+-- ==============================
+
+local WalkSpeedValue = 70
+Tabs.Player:AddInput("WalkSpeedInput",{
+    Title="WalkSpeed",
+    Default="70",
+    Numeric=true,
+    Finished=false,
+    Callback=function(Value)
+        WalkSpeedValue = tonumber(Value) or 70
+    end
+})
+task.spawn(function()
+    while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+        pcall(function()
+            local char = localPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.WalkSpeed = WalkSpeedValue
+                end
+            end
+        end)
+    end
+end)
+
+Tabs.Player:AddInput("JumpPowerInput",{
+    Title="Jump Power",
+    Default="50",
+    Numeric=true,
+    Finished=false,
+    Callback=function(Value)
+        local jump = tonumber(Value)
+        if jump and localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid") then
+            localPlayer.Character.Humanoid.JumpPower = jump
+        end
+    end
+})
+
+SaveManager:SetLibrary(NOS)
+InterfaceManager:SetLibrary(NOS)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("NOSHub")
+SaveManager:SetFolder("NOSHub/"..gameid)
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+
+NOS:Notify({
+    Title="NOS HUB",
+    Content="The script has been loaded.",
+    Duration=8
+})
+
+SaveManager:LoadAutoloadConfig()
