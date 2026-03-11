@@ -46,9 +46,15 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs
 if queue_on_teleport then
     queue_on_teleport(scriptSource)
 end
-Players.LocalPlayer.OnTeleport:Connect(function(state)
-    if state == Enum.TeleportState.Failed then
-        task.wait(2)
+Players.LocalPlayer.OnTeleport:Connect(function(State)
+    if State == Enum.TeleportState.Failed then
+        task.wait(3)
+        TeleportService:Teleport(game.PlaceId)
+    end
+end)
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if child.Name == "ErrorPrompt" then
+        task.wait(3)
         TeleportService:Teleport(game.PlaceId)
     end
 end)
