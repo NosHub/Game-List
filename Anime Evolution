@@ -40,18 +40,18 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(State)
-    if State == Enum.TeleportState.Failed then
-        task.wait(3)
+local scriptSource = [[
+loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs/heads/main/Anime%20Evolution"))()
+]]
+if queue_on_teleport then
+    queue_on_teleport(scriptSource)
+end
+game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(state)
+    if state == Enum.TeleportState.Failed then
+        task.wait(2)
         TeleportService:Teleport(game.PlaceId)
     end
 end)
-
-game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if child.Name == "ErrorPrompt" then
-        task.wait(3)
-        TeleportService:Teleport(game.PlaceId)
-    end
 end)
 
 Players.LocalPlayer.CameraMaxZoomDistance = 1000
@@ -247,8 +247,8 @@ end)
 Tabs.Raid:AddDropdown("RaidSelect",{
     Title="Select Raid",
     Values=RaidMaps,
-    Multi=false,
-    Default=RaidMaps[1]
+    Multi=true,
+    Default={1}
 })
 
 local AutoRaid = Tabs.Raid:AddToggle("AutoRaid",{Title="Auto Raid",Default=false})
@@ -256,18 +256,19 @@ AutoRaid:OnChanged(function()
     task.spawn(function()
         while Options.AutoRaid.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(1)
             pcall(function()
-                local raid = Options.RaidSelect.Value
-                if raid then
-                    local raid = {
-                        "Enemies",
-                        "Bridge",
-                        {
-                            Module = "RaidSystemServer",
-                            FunctionName = "Start",
-                            Args = raid
+                for raidName,enabled in pairs(Options.RaidSelect.Value) do
+                    if enabled then
+                        local args = {
+                            "Enemies",
+                            "Bridge",
+                            {
+                                Module = "RaidSystemServer",
+                                FunctionName = "Start",
+                                Args = raidName
+                            }
                         }
-                    }
-                    Bridge:FireServer(unpack(raid))
+                        Bridge:FireServer(unpack(args))
+                    end
                 end
             end)
         end
