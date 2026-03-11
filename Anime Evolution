@@ -46,12 +46,11 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs
 if queue_on_teleport then
     queue_on_teleport(scriptSource)
 end
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(state)
+Players.LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.Failed then
         task.wait(2)
         TeleportService:Teleport(game.PlaceId)
     end
-end)
 end)
 
 Players.LocalPlayer.CameraMaxZoomDistance = 1000
