@@ -94,7 +94,10 @@ end
 -- Main
 -- ==============================
 
-local AutoRank = Tabs.Main:AddToggle("AutoRank",{Title="Auto Rank",Default=false})
+local AutoRank = Tabs.Main:AddToggle("AutoRank",{
+	Title="Auto Rank",
+	Default=false
+})
 AutoRank:OnChanged(function()
     task.spawn(function()
         while Options.AutoRank.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(10)
@@ -105,7 +108,10 @@ AutoRank:OnChanged(function()
     end)
 end)
 
-local AutoAuras = Tabs.Main:AddToggle("AutoAuras",{Title="Auto Auras",Default=false})
+local AutoAuras = Tabs.Main:AddToggle("AutoAuras",{
+	Title="Auto Auras",
+	Default=false
+})
 AutoAuras:OnChanged(function()
     task.spawn(function()
         while Options.AutoAuras.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(10)
@@ -194,7 +200,10 @@ Tabs.Egg:AddDropdown("EggType",{
     Default = "Multi"
 })
 
-local AutoEgg = Tabs.Egg:AddToggle("AutoEgg",{Title="Auto Egg",Default=false})
+local AutoEgg = Tabs.Egg:AddToggle("AutoEgg",{
+	Title="Auto Egg",
+	Default=false
+})
 AutoEgg:OnChanged(function()
     task.spawn(function()
         while Options.AutoEgg.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
@@ -231,9 +240,101 @@ local AutoBest = Tabs.Egg:AddToggle("AutoBest",{
 })
 AutoBest:OnChanged(function()
     task.spawn(function()
-        while Options.AutoBest.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(3)
+        while Options.AutoBest.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
             pcall(function()
                 Bridge:FireServer("Pets","Best")
+            end)
+        end
+    end)
+end)
+
+local UnequipMode = Tabs.Egg:AddDropdown("MergeUnequipMode",{
+    Title = "Unequip Before Merge",
+    Values = {"None","Unequip All"},
+    Default = "None"
+})
+
+local function getStarCount(text)
+    local count = 0
+    for _ in text:gmatch("🌟") do
+        count += 1
+    end
+    return count
+end
+
+local function getTabType(stars)
+    if stars == 0 then
+        return "Shade", 2
+    elseif stars == 1 then
+        return "Shiny", 2
+    elseif stars == 2 then
+        return "Dark", 3
+    elseif stars == 3 then
+        return "Darker", 4
+    end
+end
+
+local AutoEvolve = Tabs.Egg:AddToggle("AutoEvolve", {
+    Title = "Auto Merge",
+    Default = false
+})
+AutoEvolve:OnChanged(function()
+    task.spawn(function()
+        while Options.AutoEvolve.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+            pcall(function()
+                local petsFolder =
+                    game.Players.LocalPlayer.PlayerGui.UI
+                    .Frames.Inventory.NewMain.body.lists.Shadows.pets
+                local pets = {}
+                local canMerge = false
+                for _, v in pairs(petsFolder:GetChildren()) do
+                    local nameLabel =
+                        v:FindFirstChild("Button")
+                        and v.Button:FindFirstChild("PetName")
+                    if nameLabel then
+                        local text = nameLabel.Text
+                        local stars = getStarCount(text)
+                        local petName = text
+                            :gsub("🌟", "")
+                            :gsub("%s+", "")
+                        local key = petName .. "_" .. stars
+                        pets[key] = pets[key] or {}
+                        table.insert(pets[key], v.Name)
+                    end
+                end
+                for key, data in pairs(pets) do
+                    local stars = tonumber(key:match("_(%d+)"))
+                    local tab, need = getTabType(stars)
+                    if tab and #data >= need then
+                        canMerge = true
+                    end
+                end
+                if canMerge then
+                    if Options.MergeUnequipMode.Value == "Unequip All" then
+                        Bridge:FireServer("Pets", "UnequipAll")
+                        task.wait()
+                    end
+                    for key, data in pairs(pets) do
+                        local stars = tonumber(key:match("_(%d+)"))
+                        local tab, need = getTabType(stars)
+                        if tab and #data >= need then
+                            local ids = {}
+                            for i = 1, need do
+                                table.insert(ids, data[i])
+                            end
+                            Bridge:FireServer(
+                                "Pets",
+                                "SMachine",
+                                {
+                                    TabType = tab,
+                                    PetIDs = ids,
+                                    Amount = 500
+                                }
+                            )
+                            task.wait()
+                        end
+                    end
+                end
             end)
         end
     end)
@@ -250,7 +351,10 @@ Tabs.Raid:AddDropdown("RaidSelect",{
     Default={1}
 })
 
-local AutoRaid = Tabs.Raid:AddToggle("AutoRaid",{Title="Auto Raid",Default=false})
+local AutoRaid = Tabs.Raid:AddToggle("AutoRaid",{
+	Title="Auto Raid",
+	Default=false
+})
 AutoRaid:OnChanged(function()
     task.spawn(function()
         while Options.AutoRaid.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(1)
@@ -318,18 +422,18 @@ end)
 -- Player
 -- ==============================
 
-local WalkSpeedValue = 70
+local WalkSpeedValue = 80
 Tabs.Player:AddInput("WalkSpeedInput",{
     Title="WalkSpeed",
-    Default="70",
+    Default="80",
     Numeric=true,
     Finished=false,
     Callback=function(Value)
-        WalkSpeedValue = tonumber(Value) or 70
+        WalkSpeedValue = tonumber(Value) or 80
     end
 })
 task.spawn(function()
-    while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+    while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(.1)
         pcall(function()
             local char = localPlayer.Character
             if char then
@@ -344,7 +448,7 @@ end)
 
 Tabs.Player:AddInput("JumpPowerInput",{
     Title="Jump Power",
-    Default="50",
+    Default="80",
     Numeric=true,
     Finished=false,
     Callback=function(Value)
