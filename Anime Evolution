@@ -40,15 +40,21 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(State)
+local scriptSource = [[
+loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs/heads/main/Anime%20Evolution"))()
+]]
+if queue_on_teleport then
+    queue_on_teleport(scriptSource)
+end
+Players.LocalPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.Failed then
-        task.wait(3)
+        task.wait(2)
         TeleportService:Teleport(game.PlaceId)
     end
 end)
 game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == "ErrorPrompt" then
-        task.wait(3)
+        task.wait(2)
         TeleportService:Teleport(game.PlaceId)
     end
 end)
