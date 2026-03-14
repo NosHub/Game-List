@@ -41,12 +41,6 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-local scriptSource = [[
-loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs/heads/main/Anime%20Evolution"))()
-]]
-if queue_on_teleport then
-    queue_on_teleport(scriptSource)
-end
 Players.LocalPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.Failed then
         task.wait(2)
