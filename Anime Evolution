@@ -30,6 +30,7 @@ local gameid = game.PlaceId
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local Bridge = ReplicatedStorage:WaitForChild("Bridge")
 local TeleportService = game:GetService("TeleportService")
+local Teleports = workspace:WaitForChild("Server"):WaitForChild("Teleport")
 local gui
 pcall(function()
     gui = Players.LocalPlayer.PlayerGui.UI.Frames.UpdateLog.Main.Frame
@@ -83,7 +84,6 @@ local Tabs = {
 -- ดึง Map จาก Teleport
 -- ==============================
 
-local Teleports = workspace:WaitForChild("Server"):WaitForChild("Teleport")
 local EggMaps = {}
 local RaidMaps = {}
 
@@ -367,7 +367,7 @@ AutoRaid:OnChanged(function()
             pcall(function()
                 for raidName,enabled in pairs(Options.RaidSelect.Value) do
                     if enabled then
-                        local args = {
+                        local raids = {
                             "Enemies",
                             "Bridge",
                             {
@@ -376,7 +376,7 @@ AutoRaid:OnChanged(function()
                                 Args = raidName
                             }
                         }
-                        Bridge:FireServer(unpack(args))
+                        Bridge:FireServer(unpack(raids))
                     end
                 end
             end)
