@@ -31,6 +31,8 @@ local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local Bridge = ReplicatedStorage:WaitForChild("Bridge")
 local TeleportService = game:GetService("TeleportService")
 local Teleports = workspace:WaitForChild("Server"):WaitForChild("Teleport")
+local playername = game.Players.LocalPlayer.Name
+local config = "Config"
 local gui
 pcall(function()
     gui = Players.LocalPlayer.PlayerGui.UI.Frames.UpdateLog.Main.Frame
@@ -461,12 +463,10 @@ Tabs.Player:AddInput("JumpPowerInput",{
 
 SaveManager:SetLibrary(NOS)
 InterfaceManager:SetLibrary(NOS)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({})
 InterfaceManager:SetFolder("NOSHub")
-SaveManager:SetFolder("NOSHub/"..gameid)
+SaveManager:SetFolder("NOSHub/"..gameid.."/"..playername)
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
+SaveManager:BuildFolderTree()
 
 Window:SelectTab(1)
 
@@ -476,4 +476,14 @@ NOS:Notify({
     Duration=8
 })
 
-SaveManager:LoadAutoloadConfig()
+pcall(function()
+    SaveManager:Load("Config")
+end)
+
+task.spawn(function()
+    while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+        pcall(function()
+            SaveManager:Save("Config")
+        end)
+    end
+end)
