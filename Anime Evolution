@@ -47,10 +47,6 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local SCRIPT = [[
 loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs/heads/main/Anime%20Evolution"))()
 ]]
@@ -60,9 +56,9 @@ local function Rejoin()
     elseif syn and syn.queue_on_teleport then
         syn.queue_on_teleport(SCRIPT)
     end
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    TeleportService:Teleport(game.PlaceId, localPlayer)
 end
-LocalPlayer.OnTeleport:Connect(function(State)
+localPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.Failed then
         task.wait(3)
         Rejoin()
