@@ -6,7 +6,7 @@ if getgenv().NOS_UI then
     end)
 end
 task.wait(0.3)
- 
+
 local NOS = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/Main"))() getgenv().NOS_UI = NOS
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/SaveManager"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/UI/refs/heads/main/InterfaceManager"))()
