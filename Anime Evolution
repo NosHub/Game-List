@@ -22,6 +22,7 @@ local Window = NOS:CreateWindow({
 })
 
 local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local localPlayer = Players.LocalPlayer
@@ -32,7 +33,9 @@ local Bridge = ReplicatedStorage:WaitForChild("Bridge")
 local TeleportService = game:GetService("TeleportService")
 local Teleports = workspace:WaitForChild("Server"):WaitForChild("Teleport")
 local playername = game.Players.LocalPlayer.Name
-local config = "Config"
+local notif = player.PlayerGui.UI.Notification.Notify
+local mapsFolder = workspace.Client:WaitForChild("Maps")
+local raidBoard = player.PlayerGui.UI.HUD.RaidInfoBoard.AutoRaid.TextLabel
 local gui
 pcall(function()
     gui = Players.LocalPlayer.PlayerGui.UI.Frames.UpdateLog.Main.Frame
@@ -43,16 +46,27 @@ Players.LocalPlayer.Idled:Connect(function()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
-Players.LocalPlayer.OnTeleport:Connect(function(State)
+local SCRIPT = [[
+loadstring(game:HttpGet("https://raw.githubusercontent.com/NosHub/Game-List/refs/heads/main/Anime%20Evolution"))()
+]]
+local function Rejoin()
+    if queue_on_teleport then
+        queue_on_teleport(SCRIPT)
+    elseif syn and syn.queue_on_teleport then
+        syn.queue_on_teleport(SCRIPT)
+    end
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end
+LocalPlayer.OnTeleport:Connect(function(State)
     if State == Enum.TeleportState.Failed then
         task.wait(2)
-        TeleportService:Teleport(game.PlaceId)
+        Rejoin()
     end
 end)
 game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
     if child.Name == "ErrorPrompt" then
         task.wait(2)
-        TeleportService:Teleport(game.PlaceId)
+        Rejoin()
     end
 end)
 
@@ -353,31 +367,64 @@ Tabs.Raid:AddDropdown("RaidSelect",{
     Default={1}
 })
 
-local AutoRaid = Tabs.Raid:AddToggle("AutoRaid",{
-	Title="Auto Raid",
+local AutoStart = Tabs.Raid:AddToggle("AutoStart",{
+	Title="Auto Start Raid",
 	Default=false
 })
-AutoRaid:OnChanged(function()
-    task.spawn(function()
-        while Options.AutoRaid.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(1)
-            pcall(function()
-                for raidName,enabled in pairs(Options.RaidSelect.Value) do
-                    if enabled then
-                        local raids = {
-                            "Enemies",
-                            "Bridge",
-                            {
-                                Module = "RaidSystemServer",
-                                FunctionName = "Start",
-                                Args = raidName
-                            }
-                        }
-                        Bridge:FireServer(unpack(raids))
-                    end
-                end
-            end)
-        end
-    end)
+AutoStart:OnChanged(function()
+	task.spawn(function()
+		while Options.AutoStart.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
+			if #mapsFolder:GetChildren() > 0 then
+				continue
+			end
+			for raidName,enabled in pairs(Options.RaidSelect.Value) do
+				if enabled then
+					Bridge:FireServer(
+						"Enemies",
+						"Bridge",
+						{
+							Module = "RaidSystemServer",
+							FunctionName = "Start",
+							Args = raidName
+						}
+					)
+				end
+			end
+		end
+	end)
+end)
+
+local AutoReplay = Tabs.Raid:AddToggle("AutoReplay",{
+	Title="Auto Replay Raid",
+	Default=false
+})
+AutoReplay:OnChanged(function()
+	task.spawn(function()
+		while Options.AutoReplay.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(1)
+			for raidName,enabled in pairs(Options.RaidSelect.Value) do
+				if enabled then
+					local inRaid = mapsFolder:FindFirstChild(raidName)
+					local text = raidBoard.Text
+					if string.find(text,"You are not the raid leader") then
+						break
+					end
+					if inRaid then
+						if text == "Auto Raid: OFF" then
+							Bridge:FireServer(
+								"Enemies",
+								"Bridge",
+								{
+									Module = "RaidSystemServer",
+									FunctionName = "AutoRaidEnabled",
+									Args = raidName
+								}
+							)
+						end
+					end
+				end
+			end
+		end
+	end)
 end)
 
 local ExitWave = 51
