@@ -21,6 +21,7 @@ local Window = NOS:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftAlt
 })
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -493,47 +494,53 @@ end)
 -- Player
 -- ==============================
 
-local SavedPosOption = Tabs.Settings:AddInput("SavedPos",{
-    Title = "Saved Position",
-    Default = "",
-    Numeric = false,
-    Finished = false
-})
-SavedPosOption:OnChanged(function()
-    print("Input updated")
+getgenv().NOS_POSITIONS = getgenv().NOS_POSITIONS or {}
+local function GetCurrentMap()
+    for _,v in pairs(workspace.Client.Maps:GetChildren()) do
+        if v:IsA("Folder") then
+            return v.Name
+        end
+    end
+    return "Lobby"
+end
+
+pcall(function()
+    local raw = Options.SavedPositions and Options.SavedPositions.Value
+    if raw and raw ~= "" then
+        local decoded = HttpService:JSONDecode(raw)
+        for map,arr in pairs(decoded) do
+            getgenv().NOS_POSITIONS[map] = CFrame.new(unpack(arr))
+        end
+    end
 end)
 
 Tabs.Player:AddButton({
     Title = "Set Point",
     Callback = function()
-        local char = localPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local cf = char.HumanoidRootPart.CFrame
-            getgenv().NOS_SAVED_CFRAME = cf
-            local data = table.concat({cf:GetComponents()}, ",")
-            SavedPosOption:SetValue(data)
-            pcall(function()
-                SaveManager:Save("Config")
-            end)
-            NOS:Notify({
-                Title = "Saved",
-                Content = "Position saved!",
-                Duration = 3
-            })
-        end
+        local char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local map = GetCurrentMap()
+        getgenv().NOS_POSITIONS[map] = hrp.CFrame
+        NOS:Notify({
+            Title = "Saved",
+            Content = "Map: "..map,
+            Duration = 3
+        })
     end
 })
 
 Tabs.Player:AddButton({
     Title = "Teleport to Point",
     Callback = function()
-        local char = localPlayer.Character
-        if getgenv().NOS_SAVED_CFRAME and char and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = getgenv().NOS_SAVED_CFRAME
+        local char = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        local map = GetCurrentMap()
+        if getgenv().NOS_POSITIONS[map] then
+            hrp.CFrame = getgenv().NOS_POSITIONS[map]
         else
             NOS:Notify({
                 Title = "Error",
-                Content = "No position saved!",
+                Content = "No position for this map!",
                 Duration = 3
             })
         end
@@ -546,11 +553,18 @@ local AutoWarp = Tabs.Player:AddToggle("AutoWarp",{
 })
 AutoWarp:OnChanged(function()
     task.spawn(function()
-        while Options.AutoWarp.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do
-            task.wait(1)
+        while Options.AutoWarp.Value and SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait(.5)
+            if raidBoards.Visible then
+                continue
+            end
             local char = localPlayer.Character
-            if getgenv().NOS_SAVED_CFRAME and char and char:FindFirstChild("HumanoidRootPart") then
-                char.HumanoidRootPart.CFrame = getgenv().NOS_SAVED_CFRAME
+            if not char then continue end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+            local map = GetCurrentMap()
+            local pos = getgenv().NOS_POSITIONS[map]
+            if pos then
+                hrp.CFrame = pos
             end
         end
     end)
@@ -618,25 +632,27 @@ NOS:Notify({
 
 pcall(function()
     SaveManager:Load("Config")
-end)
-
-task.wait(1)
-
-pcall(function()
-    if Options.SavedPos.Value and Options.SavedPos.Value ~= "" then
-        local nums = {}
-        for num in string.gmatch(Options.SavedPos.Value, "[^,]+") do
-            table.insert(nums, tonumber(num))
-        end
-        if #nums >= 12 then
-            getgenv().NOS_SAVED_CFRAME = CFrame.new(unpack(nums))
+    local extra = SaveManager.ExtraData
+    if extra and extra.Positions then
+        getgenv().NOS_POSITIONS = {}
+        for map,arr in pairs(extra.Positions) do
+            getgenv().NOS_POSITIONS[map] = CFrame.new(unpack(arr))
         end
     end
 end)
 
+task.wait(1)
+
 task.spawn(function()
     while SCRIPT_ID == getgenv().NOS_SCRIPT_ID do task.wait()
         pcall(function()
+            local data = {}
+            for map,cf in pairs(getgenv().NOS_POSITIONS) do
+                data[map] = {cf:GetComponents()}
+            end
+            SaveManager:SetExtraData({
+                Positions = data
+            })
             SaveManager:Save("Config")
         end)
     end
