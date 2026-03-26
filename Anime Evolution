@@ -547,6 +547,39 @@ Tabs.Player:AddButton({
     end
 })
 
+Tabs.Player:AddButton({
+    Title = "Delete Point (Current Map)",
+    Callback = function()
+        local map = GetCurrentMap()
+        if getgenv().NOS_POSITIONS[map] then
+            getgenv().NOS_POSITIONS[map] = nil
+            pcall(function()
+                SaveManager:Save("Config")
+            end)
+            NOS:Notify({
+                Title = "Deleted",
+                Content = "Removed point: "..map,
+                Duration = 3
+            })
+        end
+    end
+})
+
+Tabs.Player:AddButton({
+    Title = "Delete All Points",
+    Callback = function()
+        getgenv().NOS_POSITIONS = {}
+        pcall(function()
+            SaveManager:Save("Config")
+        end)
+        NOS:Notify({
+            Title = "Cleared",
+            Content = "All points removed!",
+            Duration = 3
+        })
+    end
+})
+
 local AutoWarp = Tabs.Player:AddToggle("AutoWarp",{
     Title = "Auto Warp",
     Default = false
